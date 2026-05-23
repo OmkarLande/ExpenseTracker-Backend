@@ -38,6 +38,14 @@ func (s *service) GetProfile(ctx context.Context, userID int64) (*UserResponse, 
 	if err != nil {
 		return nil, err
 	}
+
+	if user.PhotoKey != nil && *user.PhotoKey != "" {
+		downloadURL, err := s.storage.GenerateDownloadURL(ctx, *user.PhotoKey)
+		if err == nil {
+			user.PhotoURL = &downloadURL
+		}
+	}
+
 	return toUserResponse(user), nil
 }
 
@@ -65,6 +73,13 @@ func (s *service) UpdateProfile(ctx context.Context, userID int64, req UpdateUse
 	err = s.repo.Update(ctx, user)
 	if err != nil {
 		return nil, err
+	}
+
+	if user.PhotoKey != nil && *user.PhotoKey != "" {
+		downloadURL, err := s.storage.GenerateDownloadURL(ctx, *user.PhotoKey)
+		if err == nil {
+			user.PhotoURL = &downloadURL
+		}
 	}
 
 	return toUserResponse(user), nil
@@ -159,6 +174,13 @@ func (s *service) CompleteProfilePicture(ctx context.Context, userID int64, req 
 	user.PhotoURL = &newPhotoURL
 	user.PhotoKey = &objectKey
 	user.PhotoSize = &size
+
+	if user.PhotoKey != nil && *user.PhotoKey != "" {
+		downloadURL, err := s.storage.GenerateDownloadURL(ctx, *user.PhotoKey)
+		if err == nil {
+			user.PhotoURL = &downloadURL
+		}
+	}
 
 	return toUserResponse(user), nil
 }

@@ -75,6 +75,22 @@ func (s *S3Storage) GenerateUploadURL(ctx context.Context, key string, contentTy
 	return presignedReq.URL, nil
 }
 
+func (s *S3Storage) GenerateDownloadURL(ctx context.Context, key string) (string, error) {
+	input := &s3.GetObjectInput{
+		Bucket: aws.String(s.bucketName),
+		Key:    aws.String(key),
+	}
+
+	presignedReq, err := s.presigner.PresignGetObject(ctx, input, func(opts *s3.PresignOptions) {
+		opts.Expires = 1 * time.Hour
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to presign get object request: %w", err)
+	}
+
+	return presignedReq.URL, nil
+}
+
 func (s *S3Storage) ObjectExists(ctx context.Context, key string) (bool, int64, error) {
 	input := &s3.HeadObjectInput{
 		Bucket: aws.String(s.bucketName),
