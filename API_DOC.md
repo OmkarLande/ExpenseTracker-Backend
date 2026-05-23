@@ -50,18 +50,19 @@ Authorization: Bearer <jwt_access_token>
 
 ---
 
-## 4. Query Parameters (GET /api/v1/transactions)
+## 4. Query Parameters (GET /api/v1/transactions & GET /api/v1/transactions/info)
 
 | Parameter | Type | Required | Description | Default |
 | :--- | :--- | :--- | :--- | :--- |
-| `category` | `int` | No | Filter by transaction category (1 - 21) | - |
+| `category` | `string` / `int` | No | Filter by transaction category (1 - 21). Supports single ID or comma-separated list (e.g., `1,2,3`) | - |
+| `category_ids` | `string` | No | Comma-separated list of category IDs (e.g., `1,2,3`) for multi-category filter | - |
 | `type` | `int` | No | Filter by transaction type (1: Expense, 2: Income) | - |
 | `status` | `int` | No | Filter by status (1: Active, 2: Deleted) | 1 (Active) |
 | `from_date` | `string` | No | Start date filter (RFC3339 format) | - |
 | `to_date` | `string` | No | End date filter (RFC3339 format) | - |
-| `after_id` | `int` | No | Cursor ID for pagination | - |
-| `limit` | `int` | No | Max items returned (Min 1, Max 100) | 20 |
-| `sort` | `string` | No | Sort type (`newest`, `amount_asc`, `amount_desc`) | `newest` |
+| `after_id` | `int` | No | Cursor ID for pagination (**list only**) | - |
+| `limit` | `int` | No | Max items returned (Min 1, Max 100) (**list only**) | 20 |
+| `sort` | `string` | No | Sort type (`newest`, `amount_asc`, `amount_desc`) (**list only**) | `newest` |
 
 ---
 

@@ -14,7 +14,7 @@ type Service interface {
 	Update(ctx context.Context, id, userID int64, req UpdateTransactionRequest) (*TransactionResponse, error)
 	SoftDelete(ctx context.Context, id, userID int64) error
 	List(ctx context.Context, userID int64, req TransactionListRequest) (*TransactionListResponse, error)
-	GetInfo(ctx context.Context, userID int64) (*TransactionInfoResponse, error)
+	GetInfo(ctx context.Context, userID int64, req TransactionInfoRequest) (*TransactionInfoResponse, error)
 }
 
 type service struct {
@@ -135,8 +135,8 @@ func (s *service) List(ctx context.Context, userID int64, req TransactionListReq
 	}, nil
 }
 
-func (s *service) GetInfo(ctx context.Context, userID int64) (*TransactionInfoResponse, error) {
-	return s.repo.GetInfo(ctx, userID)
+func (s *service) GetInfo(ctx context.Context, userID int64, req TransactionInfoRequest) (*TransactionInfoResponse, error) {
+	return s.repo.GetInfo(ctx, userID, req)
 }
 
 func toResponse(tx *Transaction) *TransactionResponse {

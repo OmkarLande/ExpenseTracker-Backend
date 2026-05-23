@@ -3,6 +3,7 @@ package domain_transaction
 import (
 	"net/http"
 	"strconv"
+	"strings"
 
 	"ExpenseTracker-Backend/internal/utils"
 	"github.com/go-chi/chi/v5"
@@ -137,10 +138,10 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 
 	var req TransactionListRequest
 
-	if catStr := q.Get("category"); catStr != "" {
-		if val, err := strconv.Atoi(catStr); err == nil {
-			req.Category = &val
-		}
+	catIDs := parseCategoryIDs(q)
+	if len(catIDs) > 0 {
+		req.CategoryIDs = catIDs
+		req.Category = &catIDs[0]
 	}
 
 	if typeStr := q.Get("type"); typeStr != "" {
@@ -188,11 +189,54 @@ func (h *Handler) GetInfo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := h.service.GetInfo(r.Context(), userID)
+	q := r.URL.Query()
+
+	var req TransactionInfoRequest
+
+	catIDs := parseCategoryIDs(q)
+	if len(catIDs) > 0 {
+		req.CategoryIDs = catIDs
+		req.Category = &catIDs[0]
+	}
+
+	if typeStr := q.Get("type"); typeStr != "" {
+		if val, err := strconv.Atoi(typeStr); err == nil {
+			req.Type = &val
+		}
+	}
+
+	if statusStr := q.Get("status"); statusStr != "" {
+		if val, err := strconv.Atoi(statusStr); err == nil {
+			req.Status = &val
+		}
+	}
+
+	req.FromDate = q.Get("from_date")
+	req.ToDate = q.Get("to_date")
+
+	resp, err := h.service.GetInfo(r.Context(), userID, req)
 	if err != nil {
 		utils.WriteJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
 	}
 
 	utils.WriteJSON(w, http.StatusOK, resp)
+}
+
+func parseCategoryIDs(q map[string][]string) []int {
+	var catIDs []int
+	for _, key := range []string{"category", "category_ids"} {
+		for _, valStr := range q[key] {
+			if valStr == "" {
+				continue
+			}
+			for _, part := range strings.Split(valStr, ",") {
+				part = strings.TrimSpace(part)
+				if val, err := strconv.Atoi(part); err == nil {
+					catIDs = append(catIDs, val)
+				}
+			}
+		}
+	}
+	return catIDs
 }

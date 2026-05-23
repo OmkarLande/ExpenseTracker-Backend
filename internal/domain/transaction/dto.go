@@ -73,14 +73,15 @@ type TransactionResponse struct {
 
 // Cursor Pagination
 type TransactionListRequest struct {
-	Category *int   `json:"category"`
-	Type     *int   `json:"type"`
-	Status   *int   `json:"status"`
-	FromDate string `json:"from_date"`
-	ToDate   string `json:"to_date"`
-	AfterID  int64  `json:"after_id"`
-	Limit    int    `json:"limit"`
-	Sort     string `json:"sort"` // newest, amount_asc, amount_desc
+	Category    *int   `json:"category"`
+	CategoryIDs []int  `json:"category_ids"`
+	Type        *int   `json:"type"`
+	Status      *int   `json:"status"`
+	FromDate    string `json:"from_date"`
+	ToDate      string `json:"to_date"`
+	AfterID     int64  `json:"after_id"`
+	Limit       int    `json:"limit"`
+	Sort        string `json:"sort"` // newest, amount_asc, amount_desc
 }
 
 type TransactionListResponse struct {
@@ -94,6 +95,15 @@ type CategorySummary struct {
 	Category int     `json:"category"`
 	Count    int64   `json:"count"`
 	Amount   float64 `json:"amount"`
+}
+
+type TransactionInfoRequest struct {
+	Category    *int   `json:"category"`
+	CategoryIDs []int  `json:"category_ids"`
+	Type        *int   `json:"type"`
+	Status      *int   `json:"status"`
+	FromDate    string `json:"from_date"`
+	ToDate      string `json:"to_date"`
 }
 
 type TransactionInfoResponse struct {

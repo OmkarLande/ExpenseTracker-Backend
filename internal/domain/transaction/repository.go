@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"ExpenseTracker-Backend/internal/utils"
+
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
@@ -19,7 +20,7 @@ type Repository interface {
 	Update(ctx context.Context, tx *Transaction) error
 	UpdateStatus(ctx context.Context, id, userID int64, status int) error
 	List(ctx context.Context, userID int64, req TransactionListRequest) ([]Transaction, error)
-	GetInfo(ctx context.Context, userID int64) (*TransactionInfoResponse, error)
+	GetInfo(ctx context.Context, userID int64, req TransactionInfoRequest) (*TransactionInfoResponse, error)
 }
 
 type postgresRepository struct {
@@ -103,7 +104,11 @@ func (r *postgresRepository) List(ctx context.Context, userID int64, req Transac
 		paramCount++
 	}
 
-	if req.Category != nil {
+	if len(req.CategoryIDs) > 0 {
+		conditions = append(conditions, fmt.Sprintf("category = ANY($%d)", paramCount))
+		args = append(args, req.CategoryIDs)
+		paramCount++
+	} else if req.Category != nil {
 		conditions = append(conditions, fmt.Sprintf("category = $%d", paramCount))
 		args = append(args, *req.Category)
 		paramCount++
@@ -207,19 +212,71 @@ func (r *postgresRepository) List(ctx context.Context, userID int64, req Transac
 	return transactions, nil
 }
 
-func (r *postgresRepository) GetInfo(ctx context.Context, userID int64) (*TransactionInfoResponse, error) {
+func (r *postgresRepository) GetInfo(ctx context.Context, userID int64, req TransactionInfoRequest) (*TransactionInfoResponse, error) {
+	var conditions []string
+	var args []interface{}
+
+	conditions = append(conditions, "user_id = $1")
+	args = append(args, userID)
+
+	paramCount := 2
+
+	if req.Status != nil {
+		conditions = append(conditions, fmt.Sprintf("status = $%d", paramCount))
+		args = append(args, *req.Status)
+		paramCount++
+	} else {
+		conditions = append(conditions, fmt.Sprintf("status = $%d", paramCount))
+		args = append(args, int(utils.Active))
+		paramCount++
+	}
+
+	if len(req.CategoryIDs) > 0 {
+		conditions = append(conditions, fmt.Sprintf("category = ANY($%d)", paramCount))
+		args = append(args, req.CategoryIDs)
+		paramCount++
+	} else if req.Category != nil {
+		conditions = append(conditions, fmt.Sprintf("category = $%d", paramCount))
+		args = append(args, *req.Category)
+		paramCount++
+	}
+
+	if req.Type != nil {
+		conditions = append(conditions, fmt.Sprintf("type = $%d", paramCount))
+		args = append(args, *req.Type)
+		paramCount++
+	}
+
+	if req.FromDate != "" {
+		if t, err := time.Parse(time.RFC3339, req.FromDate); err == nil {
+			conditions = append(conditions, fmt.Sprintf("date >= $%d", paramCount))
+			args = append(args, t)
+			paramCount++
+		}
+	}
+
+	if req.ToDate != "" {
+		if t, err := time.Parse(time.RFC3339, req.ToDate); err == nil {
+			conditions = append(conditions, fmt.Sprintf("date <= $%d", paramCount))
+			args = append(args, t)
+			paramCount++
+		}
+	}
+
+	whereClause := strings.Join(conditions, " AND ")
+
 	// Query 1: Total stats
-	statsQuery := `
+	statsQuery := fmt.Sprintf(`
 		SELECT 
 			COUNT(*) AS total_transactions,
 			COALESCE(SUM(CASE WHEN type = 1 THEN amount ELSE 0 END), 0) AS total_expense,
 			COALESCE(SUM(CASE WHEN type = 2 THEN amount ELSE 0 END), 0) AS total_income
 		FROM transactions
-		WHERE user_id = $1 AND status = 1
-	`
+		WHERE %s
+	`, whereClause)
 	var stats TransactionInfoResponse
 	var totalExpenseDec, totalIncomeDec decimal.Decimal
-	err := r.db.QueryRow(ctx, statsQuery, userID).Scan(
+	err := r.db.QueryRow(ctx, statsQuery, args...).Scan(
 		&stats.TotalTransactions, &totalExpenseDec, &totalIncomeDec,
 	)
 	if err != nil {
@@ -229,17 +286,23 @@ func (r *postgresRepository) GetInfo(ctx context.Context, userID int64) (*Transa
 	stats.TotalIncome, _ = totalIncomeDec.Float64()
 
 	// Query 2: Category breakdown using SQL Aggregation
-	categoryQuery := `
+	var catConditions = append([]string{}, conditions...)
+	if req.Type == nil {
+		catConditions = append(catConditions, "type = 1")
+	}
+
+	catWhereClause := strings.Join(catConditions, " AND ")
+	categoryQuery := fmt.Sprintf(`
 		SELECT 
 			category,
 			COUNT(*) AS count,
 			COALESCE(SUM(amount), 0) AS amount
 		FROM transactions
-		WHERE user_id = $1 AND status = 1 AND type = 1
+		WHERE %s
 		GROUP BY category
 		ORDER BY amount DESC
-	`
-	rows, err := r.db.Query(ctx, categoryQuery, userID)
+	`, catWhereClause)
+	rows, err := r.db.Query(ctx, categoryQuery, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -258,5 +321,8 @@ func (r *postgresRepository) GetInfo(ctx context.Context, userID int64) (*Transa
 	}
 
 	stats.CategorySummary = summaries
+	if stats.CategorySummary == nil {
+		stats.CategorySummary = []CategorySummary{}
+	}
 	return &stats, nil
 }
