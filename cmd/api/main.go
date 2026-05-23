@@ -12,6 +12,7 @@ import (
 	domain_user "ExpenseTracker-Backend/internal/domain/user"
 	"ExpenseTracker-Backend/internal/middleware"
 	"ExpenseTracker-Backend/internal/storage"
+	"ExpenseTracker-Backend/internal/utils"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -66,6 +67,24 @@ func main() {
 		domain_auth.RegisterRoutes(r, authHandler, authMiddleware)
 		domain_user.RegisterRoutes(r, userHandler, authMiddleware)
 		domain_transaction.RegisterRoutes(r, txHandler, authMiddleware)
+	})
+
+	// Show Health and DB Status
+	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+		dbStatus := "UP!"
+		if err := dbpool.Ping(r.Context()); err != nil {
+			dbStatus = "DOWN :("
+		}
+
+		status := http.StatusOK
+		if dbStatus == "DOWN :(" {
+			status = http.StatusInternalServerError
+		}
+
+		utils.WriteJSON(w, status, map[string]string{
+			"api": "Alive!",
+			"db":  dbStatus,
+		})
 	})
 
 	// Start server
