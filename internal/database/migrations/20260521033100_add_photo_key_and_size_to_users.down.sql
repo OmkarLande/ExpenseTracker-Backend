@@ -1,0 +1,3 @@
+ALTER TABLE users 
+DROP COLUMN IF EXISTS photo_key,
+DROP COLUMN IF EXISTS photo_size;
