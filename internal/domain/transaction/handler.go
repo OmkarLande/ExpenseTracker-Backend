@@ -240,3 +240,20 @@ func parseCategoryIDs(q map[string][]string) []int {
 	}
 	return catIDs
 }
+
+func (h *Handler) GetAnalytics(w http.ResponseWriter, r *http.Request) {
+	userID, ok := utils.GetUserIDFromContext(r.Context())
+	if !ok {
+		utils.WriteJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+
+	resp, err := h.service.GetAnalytics(r.Context(), userID)
+	if err != nil {
+		utils.WriteJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+
+	utils.WriteJSON(w, http.StatusOK, resp)
+}
+

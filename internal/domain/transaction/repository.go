@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"ExpenseTracker-Backend/internal/utils"
@@ -21,6 +23,7 @@ type Repository interface {
 	UpdateStatus(ctx context.Context, id, userID int64, status int) error
 	List(ctx context.Context, userID int64, req TransactionListRequest) ([]Transaction, error)
 	GetInfo(ctx context.Context, userID int64, req TransactionInfoRequest) (*TransactionInfoResponse, error)
+	GetAnalytics(ctx context.Context, userID int64) (*TransactionAnalyticsResponse, error)
 }
 
 type postgresRepository struct {
@@ -325,4 +328,200 @@ func (r *postgresRepository) GetInfo(ctx context.Context, userID int64, req Tran
 		stats.CategorySummary = []CategorySummary{}
 	}
 	return &stats, nil
+}
+
+func (r *postgresRepository) GetAnalytics(ctx context.Context, userID int64) (*TransactionAnalyticsResponse, error) {
+	now := time.Now()
+
+	var res TransactionAnalyticsResponse
+	var errs [3]error
+	var wg sync.WaitGroup
+	wg.Add(3)
+
+	// 1. Weekly
+	go func() {
+		defer wg.Done()
+		offset := int(now.Weekday()) - 1
+		if offset < 0 {
+			offset = 6
+		}
+		startOfWeek := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()).AddDate(0, 0, -offset)
+		endOfWeek := startOfWeek.AddDate(0, 0, 7)
+
+		labels := []string{"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"}
+		expense := make([]float64, 7)
+		income := make([]float64, 7)
+
+		query := `
+			SELECT 
+				EXTRACT(isodow FROM date)::int as day_num,
+				COALESCE(SUM(CASE WHEN type = 1 THEN amount ELSE 0 END), 0)::numeric as expense,
+				COALESCE(SUM(CASE WHEN type = 2 THEN amount ELSE 0 END), 0)::numeric as income
+			FROM transactions
+			WHERE user_id = $1 AND status = 1 AND date >= $2 AND date < $3
+			GROUP BY day_num
+		`
+		rows, err := r.db.Query(ctx, query, userID, startOfWeek, endOfWeek)
+		if err != nil {
+			errs[0] = err
+			return
+		}
+		defer rows.Close()
+
+		var totalExp, totalInc float64
+		for rows.Next() {
+			var dayNum int
+			var expDecimal, incDecimal decimal.Decimal
+			if err := rows.Scan(&dayNum, &expDecimal, &incDecimal); err != nil {
+				errs[0] = err
+				return
+			}
+			exp, _ := expDecimal.Float64()
+			inc, _ := incDecimal.Float64()
+			if dayNum >= 1 && dayNum <= 7 {
+				expense[dayNum-1] = exp
+				income[dayNum-1] = inc
+				totalExp += exp
+				totalInc += inc
+			}
+		}
+
+		res.Weekly = AnalyticsData{
+			Labels:       labels,
+			Expense:      expense,
+			Income:       income,
+			TotalExpense: totalExp,
+			TotalIncome:  totalInc,
+			Net:          totalInc - totalExp,
+		}
+	}()
+
+	// 2. Monthly
+	go func() {
+		defer wg.Done()
+		startMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location()).AddDate(0, -11, 0)
+		endMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location()).AddDate(0, 1, 0)
+
+		labels := make([]string, 12)
+		expense := make([]float64, 12)
+		income := make([]float64, 12)
+
+		for i := 0; i < 12; i++ {
+			m := startMonth.AddDate(0, i, 0)
+			labels[i] = m.Format("Jan-06")
+		}
+
+		query := `
+			SELECT 
+				DATE_TRUNC('month', date) as month_start,
+				COALESCE(SUM(CASE WHEN type = 1 THEN amount ELSE 0 END), 0)::numeric as expense,
+				COALESCE(SUM(CASE WHEN type = 2 THEN amount ELSE 0 END), 0)::numeric as income
+			FROM transactions
+			WHERE user_id = $1 AND status = 1 AND date >= $2 AND date < $3
+			GROUP BY month_start
+		`
+		rows, err := r.db.Query(ctx, query, userID, startMonth, endMonth)
+		if err != nil {
+			errs[1] = err
+			return
+		}
+		defer rows.Close()
+
+		var totalExp, totalInc float64
+		for rows.Next() {
+			var monthStart time.Time
+			var expDecimal, incDecimal decimal.Decimal
+			if err := rows.Scan(&monthStart, &expDecimal, &incDecimal); err != nil {
+				errs[1] = err
+				return
+			}
+			exp, _ := expDecimal.Float64()
+			inc, _ := incDecimal.Float64()
+			monthsDiff := (monthStart.Year() - startMonth.Year()) * 12 + int(monthStart.Month() - startMonth.Month())
+			if monthsDiff >= 0 && monthsDiff < 12 {
+				expense[monthsDiff] = exp
+				income[monthsDiff] = inc
+				totalExp += exp
+				totalInc += inc
+			}
+		}
+
+		res.Monthly = AnalyticsData{
+			Labels:       labels,
+			Expense:      expense,
+			Income:       income,
+			TotalExpense: totalExp,
+			TotalIncome:  totalInc,
+			Net:          totalInc - totalExp,
+		}
+	}()
+
+	// 3. Yearly
+	go func() {
+		defer wg.Done()
+		startYear := time.Date(now.Year()-4, 1, 1, 0, 0, 0, 0, now.Location())
+		endYear := time.Date(now.Year()+1, 1, 1, 0, 0, 0, 0, now.Location())
+
+		labels := make([]string, 5)
+		expense := make([]float64, 5)
+		income := make([]float64, 5)
+
+		for i := 0; i < 5; i++ {
+			labels[i] = strconv.Itoa(startYear.Year() + i)
+		}
+
+		query := `
+			SELECT 
+				EXTRACT(year FROM date)::int as yr,
+				COALESCE(SUM(CASE WHEN type = 1 THEN amount ELSE 0 END), 0)::numeric as expense,
+				COALESCE(SUM(CASE WHEN type = 2 THEN amount ELSE 0 END), 0)::numeric as income
+			FROM transactions
+			WHERE user_id = $1 AND status = 1 AND date >= $2 AND date < $3
+			GROUP BY yr
+		`
+		rows, err := r.db.Query(ctx, query, userID, startYear, endYear)
+		if err != nil {
+			errs[2] = err
+			return
+		}
+		defer rows.Close()
+
+		var totalExp, totalInc float64
+		for rows.Next() {
+			var yr int
+			var expDecimal, incDecimal decimal.Decimal
+			if err := rows.Scan(&yr, &expDecimal, &incDecimal); err != nil {
+				errs[2] = err
+				return
+			}
+			exp, _ := expDecimal.Float64()
+			inc, _ := incDecimal.Float64()
+			yearDiff := yr - startYear.Year()
+			if yearDiff >= 0 && yearDiff < 5 {
+				expense[yearDiff] = exp
+				income[yearDiff] = inc
+				totalExp += exp
+				totalInc += inc
+			}
+		}
+
+		res.Yearly = AnalyticsData{
+			Labels:       labels,
+			Expense:      expense,
+			Income:       income,
+			TotalExpense: totalExp,
+			TotalIncome:  totalInc,
+			Net:          totalInc - totalExp,
+		}
+	}()
+
+	wg.Wait()
+
+	for _, err := range errs {
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return &res, nil
 }

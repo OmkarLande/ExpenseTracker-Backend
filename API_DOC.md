@@ -228,6 +228,46 @@ Response:
 
 ---
 
+## 8.5. Analytics Endpoint (GET /api/v1/transactions/analytics)
+
+Provides weekly, monthly, and yearly transaction aggregates for dashboard charting in a single response to minimize network requests.
+
+### Request:
+`GET /api/v1/transactions/analytics`
+- **Headers**: `Authorization: Bearer <jwt_access_token>`
+
+### Response:
+```json
+{
+  "weekly": {
+    "labels": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+    "expense": [120.50, 0, 45.00, 350.00, 0, 80.00, 0],
+    "income": [0, 1500.00, 0, 0, 0, 0, 0],
+    "total_expense": 595.50,
+    "total_income": 1500.00,
+    "net": 904.50
+  },
+  "monthly": {
+    "labels": ["Jun-25", "Jul-25", "Aug-25", "Sep-25", "Oct-25", "Nov-25", "Dec-25", "Jan-26", "Feb-26", "Mar-26", "Apr-26", "May-26"],
+    "expense": [450.00, 320.00, 1200.00, 95.00, 850.00, 0, 600.00, 300.00, 450.00, 150.00, 200.00, 595.50],
+    "income": [2000.00, 2000.00, 2500.00, 2000.00, 2000.00, 0, 3000.00, 2000.00, 2000.00, 2000.00, 2000.00, 1500.00],
+    "total_expense": 5460.50,
+    "total_income": 23000.00,
+    "net": 17539.50
+  },
+  "yearly": {
+    "labels": ["2022", "2023", "2024", "2025", "2026"],
+    "expense": [0, 0, 15400.00, 12500.00, 1895.50],
+    "income": [0, 0, 35000.00, 28000.00, 11500.00],
+    "total_expense": 29795.50,
+    "total_income": 74500.00,
+    "net": 44704.50
+  }
+}
+```
+
+---
+
 ## 9. Status Code Table
 
 | Status Code | Description | Occurrence |

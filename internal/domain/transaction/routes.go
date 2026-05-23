@@ -17,6 +17,7 @@ func RegisterRoutes(
 		r.Post("/", handler.Create)
 		r.Get("/", handler.List)
 		r.Get("/info", handler.GetInfo)
+		r.Get("/analytics", handler.GetAnalytics)
 		
 		r.Route("/{id}", func(r chi.Router) {
 			r.Get("/", handler.GetByID)

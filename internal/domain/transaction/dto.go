@@ -112,3 +112,19 @@ type TransactionInfoResponse struct {
 	TotalIncome       float64           `json:"total_income"`
 	CategorySummary   []CategorySummary `json:"category_summary"`
 }
+
+type AnalyticsData struct {
+	Labels       []string  `json:"labels"`
+	Expense      []float64 `json:"expense"`
+	Income       []float64 `json:"income"`
+	TotalExpense float64   `json:"total_expense"`
+	TotalIncome  float64   `json:"total_income"`
+	Net          float64   `json:"net"`
+}
+
+type TransactionAnalyticsResponse struct {
+	Weekly  AnalyticsData `json:"weekly"`
+	Monthly AnalyticsData `json:"monthly"`
+	Yearly  AnalyticsData `json:"yearly"`
+}
+
