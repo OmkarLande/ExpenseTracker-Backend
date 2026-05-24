@@ -2,6 +2,7 @@ package domain_auth
 
 import (
 	"bytes"
+	"crypto/tls"
 	"fmt"
 	"html/template"
 	"net/smtp"
@@ -40,9 +41,58 @@ func (s *EmailSender) SendTemplateEmail(to string, subject string, templateName 
 
 	// Send Email
 	addr := fmt.Sprintf("%s:%s", s.Config.SMTPHost, s.Config.SMTPPort)
-	err = smtp.SendMail(addr, auth, s.Config.SMTPFrom, []string{to}, body.Bytes())
-	if err != nil {
-		return fmt.Errorf("could not send email: %w", err)
+
+	if s.Config.SMTPPort == "465" {
+		// Implicit TLS for port 465 (Zoho SSL/TLS)
+		tlsConfig := &tls.Config{
+			InsecureSkipVerify: false,
+			ServerName:         s.Config.SMTPHost,
+		}
+
+		conn, err := tls.Dial("tcp", addr, tlsConfig)
+		if err != nil {
+			return fmt.Errorf("could not dial TLS: %w", err)
+		}
+		defer conn.Close()
+
+		client, err := smtp.NewClient(conn, s.Config.SMTPHost)
+		if err != nil {
+			return fmt.Errorf("could not create SMTP client: %w", err)
+		}
+		defer client.Close()
+
+		if err = client.Auth(auth); err != nil {
+			return fmt.Errorf("could not authenticate SMTP client: %w", err)
+		}
+
+		if err = client.Mail(s.Config.SMTPFrom); err != nil {
+			return fmt.Errorf("could not set SMTP sender: %w", err)
+		}
+
+		if err = client.Rcpt(to); err != nil {
+			return fmt.Errorf("could not set SMTP recipient: %w", err)
+		}
+
+		w, err := client.Data()
+		if err != nil {
+			return fmt.Errorf("could not open SMTP data writer: %w", err)
+		}
+		_, err = w.Write(body.Bytes())
+		if err != nil {
+			return fmt.Errorf("could not write SMTP data: %w", err)
+		}
+		err = w.Close()
+		if err != nil {
+			return fmt.Errorf("could not close SMTP data writer: %w", err)
+		}
+
+		_ = client.Quit()
+	} else {
+		// STARTTLS or plaintext for other ports (e.g. 587)
+		err = smtp.SendMail(addr, auth, s.Config.SMTPFrom, []string{to}, body.Bytes())
+		if err != nil {
+			return fmt.Errorf("could not send email: %w", err)
+		}
 	}
 
 	return nil

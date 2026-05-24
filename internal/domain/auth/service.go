@@ -3,6 +3,7 @@ package domain_auth
 import (
 	"context"
 	"errors"
+	"log"
 	"time"
 
 	"ExpenseTracker-Backend/internal/config"
@@ -143,7 +144,10 @@ func (s *service) ForgotPassword(ctx context.Context, email string) error {
 		return err
 	}
 
-	_ = s.emailSender.SendPasswordResetEmail(user.Email, otp)
+	err = s.emailSender.SendPasswordResetEmail(user.Email, otp)
+	if err != nil {
+		log.Printf("ForgotPassword: failed to send email to %s: %v", user.Email, err)
+	}
 	return nil
 }
 
