@@ -123,6 +123,20 @@ func (r *postgresRepository) List(ctx context.Context, userID int64, req Transac
 		paramCount++
 	}
 
+	search := strings.TrimSpace(req.Search)
+	if search != "" {
+		matchingCatIDs := utils.GetCategoryIDsByNameSearch(search)
+		if len(matchingCatIDs) > 0 {
+			conditions = append(conditions, fmt.Sprintf("(description ILIKE $%d OR category = ANY($%d))", paramCount, paramCount+1))
+			args = append(args, "%"+search+"%", matchingCatIDs)
+			paramCount += 2
+		} else {
+			conditions = append(conditions, fmt.Sprintf("description ILIKE $%d", paramCount))
+			args = append(args, "%"+search+"%")
+			paramCount++
+		}
+	}
+
 	if req.FromDate != "" {
 		if t, err := time.Parse(time.RFC3339, req.FromDate); err == nil {
 			conditions = append(conditions, fmt.Sprintf("date >= $%d", paramCount))
@@ -248,6 +262,20 @@ func (r *postgresRepository) GetInfo(ctx context.Context, userID int64, req Tran
 		conditions = append(conditions, fmt.Sprintf("type = $%d", paramCount))
 		args = append(args, *req.Type)
 		paramCount++
+	}
+
+	search := strings.TrimSpace(req.Search)
+	if search != "" {
+		matchingCatIDs := utils.GetCategoryIDsByNameSearch(search)
+		if len(matchingCatIDs) > 0 {
+			conditions = append(conditions, fmt.Sprintf("(description ILIKE $%d OR category = ANY($%d))", paramCount, paramCount+1))
+			args = append(args, "%"+search+"%", matchingCatIDs)
+			paramCount += 2
+		} else {
+			conditions = append(conditions, fmt.Sprintf("description ILIKE $%d", paramCount))
+			args = append(args, "%"+search+"%")
+			paramCount++
+		}
 	}
 
 	if req.FromDate != "" {

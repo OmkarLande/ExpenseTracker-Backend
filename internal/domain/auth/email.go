@@ -43,7 +43,7 @@ func (s *EmailSender) SendTemplateEmail(to string, subject string, templateName 
 	addr := fmt.Sprintf("%s:%s", s.Config.SMTPHost, s.Config.SMTPPort)
 
 	if s.Config.SMTPPort == "465" {
-		// Implicit TLS for port 465 (Zoho SSL/TLS)
+		// Implicit TLS for port 465
 		tlsConfig := &tls.Config{
 			InsecureSkipVerify: false,
 			ServerName:         s.Config.SMTPHost,

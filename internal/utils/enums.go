@@ -1,5 +1,7 @@
 package utils
 
+import "strings"
+
 type TransactionType int
 
 const (
@@ -33,6 +35,46 @@ const (
 	Others         TransactionCategory = 21
 )
 
+var CategoryNames = map[TransactionCategory]string{
+	Entertainment:  "Entertainment",
+	Health:         "Health",
+	Clothing:       "Clothing",
+	Dining:         "Dining",
+	Groceries:      "Groceries",
+	Utilities:      "Utilities",
+	Rent:           "Rent",
+	Transportation: "Transportation",
+	Education:      "Education",
+	Gifts:          "Gifts",
+	Travel:         "Travel",
+	Food:           "Food",
+	Bills:          "Bills",
+	Miscellaneous:  "Miscellaneous",
+	Salary:         "Salary",
+	Freelancing:    "Freelancing",
+	SideHustle:     "SideHustle",
+	Investments:    "Investments",
+	Refunds:        "Refunds",
+	Cashback:       "Cashback",
+	Others:         "Others",
+}
+
+// GetCategoryIDsByNameSearch searches category names (case-insensitive substring match)
+// and returns their corresponding IDs.
+func GetCategoryIDsByNameSearch(q string) []int {
+	if q == "" {
+		return nil
+	}
+	q = strings.ToLower(q)
+	var ids []int
+	for cat, name := range CategoryNames {
+		if strings.Contains(strings.ToLower(name), q) {
+			ids = append(ids, int(cat))
+		}
+	}
+	return ids
+}
+
 type TransactionStatus int
 
 const (
@@ -40,3 +82,4 @@ const (
 	Deleted  TransactionStatus = 2
 	Archived TransactionStatus = 3
 )
+

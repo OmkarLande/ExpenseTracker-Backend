@@ -172,6 +172,7 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	}
 
 	req.Sort = q.Get("sort")
+	req.Search = q.Get("q")
 
 	resp, err := h.service.List(r.Context(), userID, req)
 	if err != nil {
@@ -213,6 +214,7 @@ func (h *Handler) GetInfo(w http.ResponseWriter, r *http.Request) {
 
 	req.FromDate = q.Get("from_date")
 	req.ToDate = q.Get("to_date")
+	req.Search = q.Get("q")
 
 	resp, err := h.service.GetInfo(r.Context(), userID, req)
 	if err != nil {

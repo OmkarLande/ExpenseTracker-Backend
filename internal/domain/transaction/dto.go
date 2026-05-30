@@ -73,6 +73,7 @@ type TransactionResponse struct {
 
 // Cursor Pagination
 type TransactionListRequest struct {
+	Search      string `json:"q"`
 	Category    *int   `json:"category"`
 	CategoryIDs []int  `json:"category_ids"`
 	Type        *int   `json:"type"`
@@ -98,6 +99,7 @@ type CategorySummary struct {
 }
 
 type TransactionInfoRequest struct {
+	Search      string `json:"q"`
 	Category    *int   `json:"category"`
 	CategoryIDs []int  `json:"category_ids"`
 	Type        *int   `json:"type"`
