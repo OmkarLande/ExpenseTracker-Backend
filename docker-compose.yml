@@ -39,11 +39,11 @@ services:
     restart: unless-stopped
     networks:
       - default
-      - opensip-apps
+      - openship-apps
 
 volumes:
   postgres_data:
 
 networks:
-  opensip-apps:
+  openship-apps:
     external: true
