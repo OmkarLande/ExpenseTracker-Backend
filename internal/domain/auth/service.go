@@ -64,7 +64,11 @@ func (s *service) Register(ctx context.Context, req RegisterUserRequest) error {
 func (s *service) Login(ctx context.Context, req LoginUserRequest) (*LoginUserResponse, error) {
 	user, err := s.repo.GetUserByEmail(ctx, req.Email)
 	if err != nil {
-		return nil, errors.New("invalid email or password")
+		if err.Error() == "user not found" {
+			return nil, errors.New("invalid email or password")
+		}
+		log.Printf("DB error in GetUserByEmail: %v", err)
+		return nil, err
 	}
 
 	if !CheckPasswordHash(req.Password, user.PasswordHash) {
