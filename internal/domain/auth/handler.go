@@ -59,7 +59,11 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := h.service.Login(r.Context(), req)
 	if err != nil {
-		writeError(w, http.StatusUnauthorized, err)
+		if err.Error() == "invalid email or password" {
+			writeError(w, http.StatusBadRequest, err) // Return 400 to bypass frontend 401 interceptor
+		} else {
+			writeError(w, http.StatusInternalServerError, err)
+		}
 		return
 	}
 
